@@ -28,8 +28,9 @@ WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 
 # Police de caractères
-font = pygame.font.Font('atwriter.ttf', 20)
+font = pygame.font.Font('atwriter.ttf', 17)
 table_font = pygame.font.Font('atwriter.ttf', 12)  # Police pour le texte du tableau
+title_font = pygame.font.Font('atwriter.ttf', 35)  # Utiliser la même police avec une taille de 30
 
 # Fonctions d'interface
 def draw_text(text, x, y, color=WHITE):
@@ -204,22 +205,45 @@ running = True
 while running:
     screen.fill(BLACK)  # Remplir l'arrière-plan avec une couleur noire
     screen.blit(background, (x_position, y_position)) # Centrage horizontal de l'image
+    
+    # Préparer le texte du titre
+    title_text = "La Grande Epicerie"
+    title_surface = title_font.render(title_text, True, WHITE)
+    title_x_position = screen_width // 2 - title_surface.get_width() // 2
+    title_y_position = 30  # 20 pixels du haut
+
+    # Dessiner le titre
+    screen.blit(title_surface, (title_x_position, title_y_position))
+    
+    # Calculer la position y pour le texte supplémentaire sous chaque titre
+    offset_y = 20  # Décalage vertical pour le texte supplémentaire
+    vertical_shift = -15  # Remonter de 50px
 
     # Afficher les zones de texte et les textes avec un décalage vertical ajusté
     for i, box in enumerate(input_boxes):
         box.draw(screen)
-        text_y_position = box.rect.y - 30  # 30 pixels au-dessus de la boîte (20 initialement - 10 pour le décalage)
+        text_y_position = box.rect.y - 30 + vertical_shift  # 30 pixels au-dessus de la boîte (20 initialement - 10 pour le décalage)
 
+        # Déterminer le texte à afficher pour chaque box
         if i == 0:
-            text = 'Ajouter Produit'
+            title_text = 'Ajouter Produit'
+            info_text = "(nom, description, prix, quantite, cat)"
         elif i == 1:
-            text = 'Supprimer Produit'
+            title_text = 'Supprimer Produit'
+            info_text = "(nom)"
         else:
-            text = 'Modifier Produit'
+            title_text = 'Modifier Produit'
+            info_text = "(nom, new description, new prix, new quantite, new cat)"
 
-        text_surface = font.render(text, True, WHITE)
+        # Dessiner le titre
+        text_surface = font.render(title_text, True, WHITE)
         text_x_position = screen_width // 2 - text_surface.get_width() // 2
-        draw_text(text, text_x_position, text_y_position)
+        draw_text(title_text, text_x_position, text_y_position)
+
+        # Dessiner les informations supplémentaires sous le titre
+        info_text_surface = font.render(info_text, True, WHITE)
+        info_text_x_position = screen_width // 2 - info_text_surface.get_width() // 2
+        draw_text(info_text, info_text_x_position, text_y_position + offset_y)  # Ajuster la position y
 
     # Gestion des événements
     for event in pygame.event.get():
