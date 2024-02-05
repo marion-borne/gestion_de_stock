@@ -45,6 +45,7 @@ class InputBox:
         self.rect = pygame.Rect(x, y, w, h)
         self.color = WHITE  # Couleur du contour de la boîte
         self.text = text
+        self.font = pygame.font.Font('atwriter.ttf', 12)
         self.txt_surface = font.render(text, True, WHITE)  # Utilisation de la police définie globalement
         self.active = False
         
@@ -60,7 +61,9 @@ class InputBox:
                     process_add_product(self.text)
                 elif self == input_boxes[1]:  # Si c'est la box "Supprimer Produit"
                     process_delete_product(self.text)
-                self.text = ''  # Réinitialiser le texte de la InputBox après l'action
+                elif self == input_boxes[2]:  # Si c'est la box "Modifier Produit"
+                    process_modify_product(self.text)
+                self.text = ''
                 self.active = False
             elif event.key == pygame.K_BACKSPACE:
                 self.text = self.text[:-1]
@@ -69,15 +72,13 @@ class InputBox:
             self.txt_surface = font.render(self.text, True, WHITE)
 
     def draw(self, screen):
-        # Calcul pour centrer le texte dans la boîte
+        # Mise à jour du texte à afficher avec la police ajustée
+        self.txt_surface = self.font.render(self.text, True, WHITE)
         txt_rect = self.txt_surface.get_rect(center=self.rect.center)
-        # Remplir le rectangle avec du noir
         pygame.draw.rect(screen, BLACK, self.rect)
-        # Afficher le texte centré
         screen.blit(self.txt_surface, txt_rect)
-        # Dessiner un contour blanc autour de la boîte
-        pygame.draw.rect(screen, self.color, self.rect, 2)  # 2 est l'épaisseur du contour
-
+        pygame.draw.rect(screen, self.color, self.rect, 2)
+        
 class Store:
     def __init__(self, mydb):
         self.mydb = mydb
@@ -104,9 +105,12 @@ class Store:
         self.mydb.commit()
         cursor.close()
 
-    def modifier_produit(self, id, nom, decription, price, quantity, id_category):
+    def modifier_produit(self, name, new_decription, new_price, new_quantity, new_id_category):
         cursor = self.mydb.cursor()
-        cursor.execute("UPDATE product SET nom = %s, description = %s, price = %s, quantity = %s, id_category = %s WHERE id = %s", (nom, description, price, quantity, id_category, id))
+        query = ("UPDATE product "
+                 "SET decription = %s, price = %s, quantity = %s, id_category = %s "
+                 "WHERE name = %s")
+        cursor.execute(query, (new_decription, new_price, new_quantity, new_id_category, name))
         self.mydb.commit()
         cursor.close()
 
@@ -129,6 +133,13 @@ def process_add_product(input_text):
 def process_delete_product(input_text):
     name = input_text.strip()
     store.supprimer_produit_par_nom(name)
+    update_display()
+
+def process_modify_product(input_text):
+    data = input_text.split(',')
+    if len(data) >= 5:
+        name, new_description, new_price, new_quantity, new_id_category = data
+        store.modifier_produit(name.strip(), new_description.strip(), new_price.strip(), new_quantity.strip(), new_id_category.strip())
     update_display()
 
 # Fonction pour mettre à jour l'affichage du tableau
