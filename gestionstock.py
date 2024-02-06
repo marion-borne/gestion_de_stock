@@ -28,8 +28,9 @@ WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 
 # Police de caractères
-font = pygame.font.Font('atwriter.ttf', 20)
+font = pygame.font.Font('atwriter.ttf', 17)
 table_font = pygame.font.Font('atwriter.ttf', 12)  # Police pour le texte du tableau
+title_font = pygame.font.Font('atwriter.ttf', 35)  # Utiliser la même police avec une taille de 30
 
 # Fonctions d'interface
 def draw_text(text, x, y, color=WHITE):
@@ -45,6 +46,7 @@ class InputBox:
         self.rect = pygame.Rect(x, y, w, h)
         self.color = WHITE  # Couleur du contour de la boîte
         self.text = text
+        self.font = pygame.font.Font('atwriter.ttf', 12)
         self.txt_surface = font.render(text, True, WHITE)  # Utilisation de la police définie globalement
         self.active = False
         
@@ -54,28 +56,30 @@ class InputBox:
                 self.active = not self.active
             else:
                 self.active = False
-        if event.type == pygame.KEYDOWN:
-            if self.active:
-                if event.key == pygame.K_RETURN:
-                    print(self.text)
-                    self.active = False
-                elif event.key == pygame.K_BACKSPACE:
-                    self.text = self.text[:-1]
-                else:
-                    self.text += event.unicode
-                self.txt_surface = font.render(self.text, True, WHITE)  # Mise à jour avec la police spécifiée
-
+        if self.active and event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_RETURN:
+                if self == input_boxes[0]:  # Si c'est la box "Ajouter Produit"
+                    process_add_product(self.text)
+                elif self == input_boxes[1]:  # Si c'est la box "Supprimer Produit"
+                    process_delete_product(self.text)
+                elif self == input_boxes[2]:  # Si c'est la box "Modifier Produit"
+                    process_modify_product(self.text)
+                self.text = ''
+                self.active = False
+            elif event.key == pygame.K_BACKSPACE:
+                self.text = self.text[:-1]
+            else:
+                self.text += event.unicode
+            self.txt_surface = font.render(self.text, True, WHITE)
 
     def draw(self, screen):
-        # Calcul pour centrer le texte dans la boîte
+        # Mise à jour du texte à afficher avec la police ajustée
+        self.txt_surface = self.font.render(self.text, True, WHITE)
         txt_rect = self.txt_surface.get_rect(center=self.rect.center)
-        # Remplir le rectangle avec du noir
         pygame.draw.rect(screen, BLACK, self.rect)
-        # Afficher le texte centré
         screen.blit(self.txt_surface, txt_rect)
-        # Dessiner un contour blanc autour de la boîte
-        pygame.draw.rect(screen, self.color, self.rect, 2)  # 2 est l'épaisseur du contour
-
+        pygame.draw.rect(screen, self.color, self.rect, 2)
+        
 class Store:
     def __init__(self, mydb):
         self.mydb = mydb
@@ -87,21 +91,27 @@ class Store:
         cursor.close()
         return products
 
-    def ajouter_produit(self, nom, description, price, quantity, id_category):
+    def ajouter_produit(self, name, decription, price, quantity, id_category):
         cursor = self.mydb.cursor()
-        cursor.execute("INSERT INTO product (nom, description, price, quantity, id_category) VALUES (%s, %s, %s, %s, %s)", (nom, description, price, quantity, id_category))
+        # La requête SQL doit maintenant utiliser 'name' au lieu de 'nom'.
+        query = "INSERT INTO product (name, decription, price, quantity, id_category) VALUES (%s, %s, %s, %s, %s)"
+        cursor.execute(query, (name, decription, price, quantity, id_category))
         self.mydb.commit()
         cursor.close()
 
-    def supprimer_produit(self, id):
+    def supprimer_produit_par_nom(self, name):
         cursor = self.mydb.cursor()
-        cursor.execute("DELETE FROM product WHERE id = %s", (id,))
+        query = "DELETE FROM product WHERE name = %s"
+        cursor.execute(query, (name,))
         self.mydb.commit()
         cursor.close()
 
-    def modifier_produit(self, id, nom, description, price, quantity, id_category):
+    def modifier_produit(self, name, new_decription, new_price, new_quantity, new_id_category):
         cursor = self.mydb.cursor()
-        cursor.execute("UPDATE product SET nom = %s, description = %s, price = %s, quantity = %s, id_category = %s WHERE id = %s", (nom, description, price, quantity, id_category, id))
+        query = ("UPDATE product "
+                 "SET decription = %s, price = %s, quantity = %s, id_category = %s "
+                 "WHERE name = %s")
+        cursor.execute(query, (new_decription, new_price, new_quantity, new_id_category, name))
         self.mydb.commit()
         cursor.close()
 
@@ -113,6 +123,34 @@ mydb = mysql.connector.connect(
     database="store"
 )
 
+# Fonction pour traiter la saisie de l'utilisateur
+def process_add_product(input_text):
+    data = input_text.split(',')
+    if len(data) >= 5:
+        name, description, price, quantity, id_category = data
+        store.ajouter_produit(name.strip(), description.strip(), price.strip(), quantity.strip(), id_category.strip())
+    update_display()
+    
+def process_delete_product(input_text):
+    name = input_text.strip()
+    store.supprimer_produit_par_nom(name)
+    update_display()
+
+def process_modify_product(input_text):
+    data = input_text.split(',')
+    if len(data) >= 5:
+        name, new_description, new_price, new_quantity, new_id_category = data
+        store.modifier_produit(name.strip(), new_description.strip(), new_price.strip(), new_quantity.strip(), new_id_category.strip())
+    update_display()
+
+# Fonction pour mettre à jour l'affichage du tableau
+def update_display():
+    global products, screen, background, x_position, y_position, column_widths
+    products = store.fetch_products()
+    screen.fill(BLACK)
+    screen.blit(background, (x_position, y_position))
+    draw_table(products, 10, 300, column_widths)
+    
 def draw_table(data, top_left_x, top_left_y, column_widths):
     # Calculer la largeur totale du tableau
     total_width = sum(column_widths)
@@ -160,28 +198,52 @@ input_boxes = [
     InputBox(screen_width // 2 - 100, 50 + 60 + espacement + decalage_vertical, 200, 30),
     InputBox(screen_width // 2 - 100, 50 + 120 + 2 * espacement + decalage_vertical, 200, 30)
 ]
+products = store.fetch_products()
 
 # Boucle principale
 running = True
 while running:
     screen.fill(BLACK)  # Remplir l'arrière-plan avec une couleur noire
     screen.blit(background, (x_position, y_position)) # Centrage horizontal de l'image
+    
+    # Préparer le texte du titre
+    title_text = "La Grande Epicerie"
+    title_surface = title_font.render(title_text, True, WHITE)
+    title_x_position = screen_width // 2 - title_surface.get_width() // 2
+    title_y_position = 30  # 20 pixels du haut
+
+    # Dessiner le titre
+    screen.blit(title_surface, (title_x_position, title_y_position))
+    
+    # Calculer la position y pour le texte supplémentaire sous chaque titre
+    offset_y = 20  # Décalage vertical pour le texte supplémentaire
+    vertical_shift = -15  # Remonter de 50px
 
     # Afficher les zones de texte et les textes avec un décalage vertical ajusté
     for i, box in enumerate(input_boxes):
         box.draw(screen)
-        text_y_position = box.rect.y - 30  # 30 pixels au-dessus de la boîte (20 initialement - 10 pour le décalage)
+        text_y_position = box.rect.y - 30 + vertical_shift  # 30 pixels au-dessus de la boîte (20 initialement - 10 pour le décalage)
 
+        # Déterminer le texte à afficher pour chaque box
         if i == 0:
-            text = 'Ajouter Produit'
+            title_text = 'Ajouter Produit'
+            info_text = "(nom, description, prix, quantite, cat)"
         elif i == 1:
-            text = 'Supprimer Produit'
+            title_text = 'Supprimer Produit'
+            info_text = "(nom)"
         else:
-            text = 'Modifier Produit'
+            title_text = 'Modifier Produit'
+            info_text = "(nom, new description, new prix, new quantite, new cat)"
 
-        text_surface = font.render(text, True, WHITE)
+        # Dessiner le titre
+        text_surface = font.render(title_text, True, WHITE)
         text_x_position = screen_width // 2 - text_surface.get_width() // 2
-        draw_text(text, text_x_position, text_y_position)
+        draw_text(title_text, text_x_position, text_y_position)
+
+        # Dessiner les informations supplémentaires sous le titre
+        info_text_surface = font.render(info_text, True, WHITE)
+        info_text_x_position = screen_width // 2 - info_text_surface.get_width() // 2
+        draw_text(info_text, info_text_x_position, text_y_position + offset_y)  # Ajuster la position y
 
     # Gestion des événements
     for event in pygame.event.get():
